@@ -138,6 +138,20 @@ func (r *Gogs) GetScript(user *model.User, repo *model.Repo, hook *model.Hook) (
 func (r *Gogs) Activate(user *model.User, repo *model.Repo, link string) error {
 	var client = gogs.NewClient(r.URL, user.Access)
 
+	var title, err = GetKeyTitle(link)
+	if err != nil {
+		return err
+	}
+
+	// if the CloneURL is using the SSHURL then we know that
+	// we need to add an SSH key to GitHub.
+	if repo.SSHURL == repo.CloneURL {
+		_, err = CreateUpdateKey(client, repo.Owner, repo.Name, title, repo.PublicKey)
+		if err != nil {
+			return err
+		}
+	}
+
 	var config = map[string]string{
 		"url":          link,
 		"secret":       r.Secret,
