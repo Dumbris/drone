@@ -163,7 +163,7 @@ func (r *Gogs) Activate(user *model.User, repo *model.Repo, link string) error {
 		Active: true,
 	}
 
-	_, err := client.CreateRepoHook(repo.Owner, repo.Name, hook)
+	_, err = client.CreateRepoHook(repo.Owner, repo.Name, hook)
 	return err
 }
 
@@ -203,4 +203,54 @@ func (r *Gogs) OpenRegistration() bool {
 
 func (r *Gogs) GetToken(user *model.User) (*model.Token, error) {
 	return nil, nil
+}
+
+// GetKey is a heper function that retrieves a public Key by
+// title. To do this, it will retrieve a list of all keys
+// and iterate through the list.
+func GetKey(client *gogs.Client, owner, name, title string) (*gogs.Key, error) {
+	keys, err := client.ListMyKeys()
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys {
+		if key.Title == title {
+			return key, nil
+		}
+	}
+	return nil, nil
+}
+
+// GetKeyTitle is a helper function that generates a title for the
+// RSA public key based on the username and domain name.
+func GetKeyTitle(rawurl string) (string, error) {
+	var uri, err = url.Parse(rawurl)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("drone@%s", uri.Host), nil
+}
+
+// CreateKey is a helper function that creates a deploy key
+// for the specified repository.
+func CreateKey(client *gogs.Client, owner, name, title, key string) (*gogs.Key, error) {
+	var k = new(gogs.AddSSHKeyOption)
+	k.Title = title
+	k.Key = key
+	created, err := client.CreateKey(*k)
+	return created, err
+}
+
+// CreateUpdateKey is a helper function that creates a deployment key
+// for the specified repository if it does not already exist, otherwise
+// it updates the existing key
+func CreateUpdateKey(client *gogs.Client, owner, name, title, key string) (*gogs.Key, error) {
+	var k, _ = GetKey(client, owner, name, title)
+	if k != nil {
+		k.Title = title
+		k.Key = key
+		client.DeleteKey(k.ID)
+	}
+
+	return CreateKey(client, owner, name, title, key)
 }
